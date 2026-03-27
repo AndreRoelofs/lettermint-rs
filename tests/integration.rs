@@ -271,12 +271,14 @@ async fn batch_send_with_idempotency_key() -> Result {
             .as_millis()
     );
 
-    let batch = BatchSendRequest::new(vec![SendEmailRequest::builder()
-        .from(from)
-        .to(vec!["ok@testing.lettermint.co".into()])
-        .subject("Integration test: batch idempotency")
-        .text("Batch with idempotency key.")
-        .build()])
+    let batch = BatchSendRequest::new(vec![
+        SendEmailRequest::builder()
+            .from(from)
+            .to(vec!["ok@testing.lettermint.co".into()])
+            .subject("Integration test: batch idempotency")
+            .text("Batch with idempotency key.")
+            .build(),
+    ])
     .expect("batch should be valid")
     .with_idempotency_key(key);
 

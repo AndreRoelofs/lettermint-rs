@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.0] - 2026-03-27
+
+### Changed
+- Rust edition bumped to 2024
+- Replaced `async-trait` with native async fn in traits
+
+### Removed
+- `async-trait` dependency
+
 ## [0.1.1] - 2026-03-27
 
 ### Added

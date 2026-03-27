@@ -1,6 +1,6 @@
 use std::borrow::Cow;
+use std::future::Future;
 
-use async_trait::async_trait;
 use bytes::Bytes;
 use http::{Request, Response, StatusCode};
 use std::error::Error;
@@ -26,11 +26,10 @@ pub trait Endpoint {
 }
 
 /// A trait which represents an asynchronous query which may be made to a Lettermint client.
-#[async_trait]
 pub trait Query<C> {
     type Result;
     /// Perform the query against the client.
-    async fn execute(self, client: &C) -> Self::Result;
+    fn execute(self, client: &C) -> impl Future<Output = Self::Result> + Send;
 }
 
 /// An error thrown by the [`Query`] trait.
@@ -97,7 +96,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T, C> Query<C> for T
 where
     T: Endpoint + Send + Sync,
@@ -174,10 +172,12 @@ where
 }
 
 /// A trait representing a client which can communicate with a Lettermint instance.
-#[async_trait]
 pub trait Client {
     type Error: Error + Send + Sync + 'static;
-    async fn execute(&self, req: Request<Bytes>) -> Result<Response<Bytes>, Self::Error>;
+    fn execute(
+        &self,
+        req: Request<Bytes>,
+    ) -> impl Future<Output = Result<Response<Bytes>, Self::Error>> + Send;
 }
 
 #[cfg(test)]
@@ -223,7 +223,6 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl Client for MockClient {
         type Error = MockClientError;
 

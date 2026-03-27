@@ -1,8 +1,7 @@
 use std::convert::TryInto;
 use std::time::Duration;
 
-use crate::{Client, Endpoint, Query, QueryError, LETTERMINT_API_URL};
-use async_trait::async_trait;
+use crate::{Client, Endpoint, LETTERMINT_API_URL, Query, QueryError};
 use bytes::Bytes;
 use http::{Request, Response};
 use thiserror::Error;
@@ -123,7 +122,6 @@ pub enum LettermintClientError {
     },
 }
 
-#[async_trait]
 impl Client for LettermintClient {
     type Error = LettermintClientError;
 
