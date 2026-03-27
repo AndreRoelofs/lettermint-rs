@@ -75,14 +75,94 @@ async fn send_full(client: &LettermintClient) {
 }
 ```
 
+### Batch sending
+
+Send up to 500 emails in a single request:
+
+```rust
+use lettermint::api::email::{SendEmailRequest, BatchSendRequest};
+use lettermint::reqwest::LettermintClient;
+use lettermint::Query;
+
+async fn send_batch(client: &LettermintClient) {
+    let batch = BatchSendRequest::new(vec![
+        SendEmailRequest::builder()
+            .from("sender@yourdomain.com")
+            .to(vec!["alice@example.com".into()])
+            .subject("Hello Alice")
+            .text("Hi Alice!")
+            .build(),
+        SendEmailRequest::builder()
+            .from("sender@yourdomain.com")
+            .to(vec!["bob@example.com".into()])
+            .subject("Hello Bob")
+            .text("Hi Bob!")
+            .build(),
+    ])
+    .expect("batch must be 1-500 emails");
+
+    let responses = batch.execute(client).await.unwrap();
+    for resp in responses {
+        println!("Sent: {} ({})", resp.message_id, resp.status);
+    }
+}
+```
+
+### Ping
+
+Check API connectivity and validate credentials:
+
+```rust
+use lettermint::api::ping::PingRequest;
+use lettermint::reqwest::LettermintClient;
+use lettermint::Query;
+
+async fn ping(client: &LettermintClient) {
+    let resp = PingRequest.execute(client).await.unwrap();
+    println!("API status: {}", resp.status);
+}
+```
+
 ### Webhook verification
 
 ```rust
 use lettermint::webhook::Webhook;
 
 let wh = Webhook::new("whsec_your_webhook_secret");
+
+// Simple verification — returns parsed JSON payload
 let payload = wh.verify(raw_body, signature_header).unwrap();
 println!("Verified event: {}", payload);
+
+// Full header verification — returns WebhookEvent with metadata
+let event = wh.verify_headers(
+    signature_header,
+    delivery_header,    // X-Lettermint-Delivery
+    event_header,       // X-Lettermint-Event
+    attempt_header,     // X-Lettermint-Attempt
+    raw_body,
+).unwrap();
+println!("Event: {:?}, attempt: {:?}", event.event, event.attempt);
+```
+
+### Error handling
+
+```rust
+use lettermint::{Query, QueryError};
+
+match req.execute(&client).await {
+    Ok(resp) => println!("Sent: {}", resp.message_id),
+    Err(QueryError::Validation { errors, message, .. }) => {
+        eprintln!("Validation failed: {message:?}, fields: {errors:?}");
+    }
+    Err(QueryError::Authentication { message, .. }) => {
+        eprintln!("Auth failed: {message:?}");
+    }
+    Err(QueryError::RateLimit { message, .. }) => {
+        eprintln!("Rate limited: {message:?}");
+    }
+    Err(e) => eprintln!("Error: {e}"),
+}
 ```
 
 ## Features

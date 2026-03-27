@@ -92,6 +92,9 @@ pub struct Attachment {
     pub filename: String,
     /// Base64-encoded content.
     pub content: String,
+    /// MIME type (e.g., `application/pdf`). Inferred by the server when omitted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_type: Option<String>,
     /// Content-ID for inline attachments (referenced via `cid:<content_id>` in HTML).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_id: Option<String>,
@@ -102,6 +105,7 @@ impl Attachment {
         Self {
             filename: filename.into(),
             content: content.into(),
+            content_type: None,
             content_id: None,
         }
     }
@@ -114,8 +118,15 @@ impl Attachment {
         Self {
             filename: filename.into(),
             content: content.into(),
+            content_type: None,
             content_id: Some(content_id.into()),
         }
+    }
+
+    /// Set the MIME content type (e.g., `application/pdf`, `image/png`).
+    pub fn with_content_type(mut self, content_type: impl Into<String>) -> Self {
+        self.content_type = Some(content_type.into());
+        self
     }
 }
 
@@ -132,11 +143,18 @@ pub struct SendEmailResponse {
 pub enum EmailStatus {
     Pending,
     Queued,
+    Suppressed,
     Processed,
     Delivered,
+    Opened,
+    Clicked,
     SoftBounced,
     HardBounced,
+    SpamComplaint,
     Failed,
+    Blocked,
+    PolicyRejected,
+    Unsubscribed,
 }
 
 impl std::fmt::Display for EmailStatus {
@@ -144,11 +162,18 @@ impl std::fmt::Display for EmailStatus {
         match self {
             Self::Pending => write!(f, "pending"),
             Self::Queued => write!(f, "queued"),
+            Self::Suppressed => write!(f, "suppressed"),
             Self::Processed => write!(f, "processed"),
             Self::Delivered => write!(f, "delivered"),
+            Self::Opened => write!(f, "opened"),
+            Self::Clicked => write!(f, "clicked"),
             Self::SoftBounced => write!(f, "soft_bounced"),
             Self::HardBounced => write!(f, "hard_bounced"),
+            Self::SpamComplaint => write!(f, "spam_complaint"),
             Self::Failed => write!(f, "failed"),
+            Self::Blocked => write!(f, "blocked"),
+            Self::PolicyRejected => write!(f, "policy_rejected"),
+            Self::Unsubscribed => write!(f, "unsubscribed"),
         }
     }
 }

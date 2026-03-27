@@ -26,13 +26,10 @@ fn sender() -> String {
 
 fn format_api_error(err: &QueryError<LettermintClientError>) -> String {
     match err {
-        QueryError::Api {
-            status,
-            message,
-            errors,
-            ..
+        QueryError::Validation {
+            message, errors, ..
         } => {
-            let mut msg = format!("API {status}");
+            let mut msg = "Validation error".to_string();
             if let Some(m) = message {
                 msg.push_str(&format!(": {m}"));
             }
@@ -42,6 +39,21 @@ fn format_api_error(err: &QueryError<LettermintClientError>) -> String {
                         msg.push_str(&format!("\n  {field}: {m}"));
                     }
                 }
+            }
+            msg
+        }
+        QueryError::Authentication { message, .. } => {
+            format!("Authentication error: {message:?}")
+        }
+        QueryError::RateLimit { message, .. } => {
+            format!("Rate limit: {message:?}")
+        }
+        QueryError::Api {
+            status, message, ..
+        } => {
+            let mut msg = format!("API {status}");
+            if let Some(m) = message {
+                msg.push_str(&format!(": {m}"));
             }
             msg
         }
@@ -63,13 +75,12 @@ async fn send_from_unverified_domain_returns_validation_error() -> Result {
         .expect_err("should fail with unverified domain");
 
     match &err {
-        QueryError::Api { status, errors, .. } => {
-            assert_eq!(*status, http::StatusCode::UNPROCESSABLE_ENTITY);
+        QueryError::Validation { errors, .. } => {
             assert!(errors.is_some(), "expected per-field validation errors");
             let errs = errors.as_ref().unwrap();
             assert!(errs.contains_key("from"), "expected error on 'from' field");
         }
-        _ => return Err(format!("expected Api error, got: {err:?}").into()),
+        _ => return Err(format!("expected Validation error, got: {err:?}").into()),
     }
     Ok(())
 }
@@ -212,5 +223,69 @@ async fn send_to_hard_bounce() -> Result {
         .map_err(|e| format_api_error(&e))?;
 
     assert!(!resp.message_id.is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore]
+async fn batch_send_ok() -> Result {
+    let from = sender();
+
+    let batch = BatchSendRequest::new(vec![
+        SendEmailRequest::builder()
+            .from(from.clone())
+            .to(vec!["ok@testing.lettermint.co".into()])
+            .subject("Integration test: batch 1/2")
+            .text("First email in batch.")
+            .build(),
+        SendEmailRequest::builder()
+            .from(from)
+            .to(vec!["ok@testing.lettermint.co".into()])
+            .subject("Integration test: batch 2/2")
+            .text("Second email in batch.")
+            .build(),
+    ])
+    .expect("batch should be valid");
+
+    let responses = batch
+        .execute(&client())
+        .await
+        .map_err(|e| format_api_error(&e))?;
+
+    assert_eq!(responses.len(), 2);
+    for resp in &responses {
+        assert!(!resp.message_id.is_empty());
+    }
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore]
+async fn batch_send_with_idempotency_key() -> Result {
+    let from = sender();
+    let key = format!(
+        "batch-integration-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    );
+
+    let batch = BatchSendRequest::new(vec![SendEmailRequest::builder()
+        .from(from)
+        .to(vec!["ok@testing.lettermint.co".into()])
+        .subject("Integration test: batch idempotency")
+        .text("Batch with idempotency key.")
+        .build()])
+    .expect("batch should be valid")
+    .with_idempotency_key(key);
+
+    let responses = batch
+        .execute(&client())
+        .await
+        .map_err(|e| format_api_error(&e))?;
+
+    assert_eq!(responses.len(), 1);
+    assert!(!responses[0].message_id.is_empty());
     Ok(())
 }

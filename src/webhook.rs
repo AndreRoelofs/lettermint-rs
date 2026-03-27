@@ -26,6 +26,19 @@ pub enum WebhookError {
     SystemClock,
 }
 
+/// A verified webhook event with metadata from Lettermint headers.
+#[derive(Debug, Clone)]
+pub struct WebhookEvent {
+    /// The parsed JSON payload.
+    pub payload: serde_json::Value,
+    /// Event type from `X-Lettermint-Event` (e.g., `message.delivered`).
+    pub event: Option<String>,
+    /// Delivery timestamp from `X-Lettermint-Delivery`.
+    pub delivery_timestamp: Option<u64>,
+    /// Retry attempt number from `X-Lettermint-Attempt` (starts at 1).
+    pub attempt: Option<u32>,
+}
+
 /// Webhook verifier for Lettermint webhook payloads.
 ///
 /// ```
@@ -85,19 +98,24 @@ impl Webhook {
         Ok(serde_json::from_str(payload)?)
     }
 
-    /// Verify using HTTP headers directly.
+    /// Verify using HTTP headers and return a [`WebhookEvent`] with metadata.
     ///
-    /// Looks for `X-Lettermint-Signature` and optionally `X-Lettermint-Delivery`.
+    /// Headers:
+    /// - `X-Lettermint-Signature` (required) — `t=<ts>,v1=<hash>`
+    /// - `X-Lettermint-Delivery` (optional) — delivery timestamp, cross-validated against signature
+    /// - `X-Lettermint-Event` (optional) — event type (e.g., `message.delivered`)
+    /// - `X-Lettermint-Attempt` (optional) — retry attempt number
     pub fn verify_headers(
         &self,
         signature_header: &str,
         delivery_header: Option<&str>,
+        event_header: Option<&str>,
+        attempt_header: Option<&str>,
         payload: &str,
-    ) -> Result<serde_json::Value, WebhookError> {
+    ) -> Result<WebhookEvent, WebhookError> {
         let (timestamp, signature) = parse_signature_header(signature_header)?;
 
-        // Cross-validate with delivery header if present
-        if let Some(delivery) = delivery_header {
+        let delivery_timestamp = if let Some(delivery) = delivery_header {
             let delivery_ts: u64 = delivery
                 .parse()
                 .map_err(|_| WebhookError::InvalidFormat("invalid delivery timestamp".into()))?;
@@ -106,7 +124,12 @@ impl Webhook {
                     "signature timestamp does not match delivery header".into(),
                 ));
             }
-        }
+            Some(delivery_ts)
+        } else {
+            None
+        };
+
+        let attempt = attempt_header.and_then(|a| a.parse::<u32>().ok());
 
         verify_signature(
             payload,
@@ -115,20 +138,13 @@ impl Webhook {
             Some(timestamp),
             self.tolerance,
         )?;
-        Ok(serde_json::from_str(payload)?)
-    }
 
-    /// One-off verification without instantiating a Webhook.
-    ///
-    /// Uses the default tolerance of 300 seconds (5 minutes).
-    pub fn verify_once(
-        payload: &str,
-        signature_header: &str,
-        secret: &str,
-    ) -> Result<serde_json::Value, WebhookError> {
-        let (ts, sig) = parse_signature_header(signature_header)?;
-        verify_signature(payload, &sig, secret, Some(ts), DEFAULT_TOLERANCE)?;
-        Ok(serde_json::from_str(payload)?)
+        Ok(WebhookEvent {
+            payload: serde_json::from_str(payload)?,
+            event: event_header.map(String::from),
+            delivery_timestamp,
+            attempt,
+        })
     }
 }
 
@@ -290,6 +306,55 @@ mod tests {
             wh_tight.verify(payload, &header),
             Err(WebhookError::TimestampTolerance { .. })
         ));
+    }
+
+    #[test]
+    fn verify_headers_with_event_metadata() {
+        let secret = "test-secret";
+        let payload = r#"{"event":"delivered"}"#;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let sig_header = make_signature(payload, secret, now);
+        let wh = Webhook::new(secret);
+
+        let event = wh
+            .verify_headers(
+                &sig_header,
+                Some(&now.to_string()),
+                Some("message.delivered"),
+                Some("1"),
+                payload,
+            )
+            .unwrap();
+
+        assert_eq!(event.event.as_deref(), Some("message.delivered"));
+        assert_eq!(event.delivery_timestamp, Some(now));
+        assert_eq!(event.attempt, Some(1));
+        assert_eq!(event.payload["event"], "delivered");
+    }
+
+    #[test]
+    fn verify_headers_without_optional_headers() {
+        let secret = "test-secret";
+        let payload = r#"{"event":"delivered"}"#;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let sig_header = make_signature(payload, secret, now);
+        let wh = Webhook::new(secret);
+
+        let event = wh
+            .verify_headers(&sig_header, None, None, None, payload)
+            .unwrap();
+
+        assert!(event.event.is_none());
+        assert!(event.delivery_timestamp.is_none());
+        assert!(event.attempt.is_none());
     }
 
     #[test]

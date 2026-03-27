@@ -54,13 +54,36 @@ where
         source: http::Error,
     },
 
+    /// Validation error (HTTP 422) with per-field details.
+    #[error("validation error: {message:?}")]
+    Validation {
+        error_type: Option<String>,
+        message: Option<String>,
+        /// Per-field validation errors (e.g., `{"from": ["domain not verified"]}`)
+        errors: Option<std::collections::HashMap<String, Vec<String>>>,
+        body: Bytes,
+    },
+
+    /// Authentication or authorization error (HTTP 401/403).
+    #[error("authentication error: {message:?}")]
+    Authentication {
+        message: Option<String>,
+        body: Bytes,
+    },
+
+    /// Rate limit exceeded (HTTP 429).
+    #[error("rate limit exceeded: {message:?}")]
+    RateLimit {
+        message: Option<String>,
+        body: Bytes,
+    },
+
+    /// Any other non-success API response.
     #[error("api error: status={status}, error_type={error_type:?}, message={message:?}")]
     Api {
         status: StatusCode,
         error_type: Option<String>,
         message: Option<String>,
-        /// Per-field validation errors (e.g., `{"from": ["domain not verified"]}`)
-        errors: Option<std::collections::HashMap<String, Vec<String>>>,
         body: Bytes,
     },
 }
@@ -120,17 +143,29 @@ where
                 errors: Option<std::collections::HashMap<String, Vec<String>>>,
             }
 
+            let status = response.status();
             let body = response.body().clone();
             let parsed = serde_json::from_slice::<LettermintErrorBody>(&body).ok();
+            let error_type = parsed
+                .as_ref()
+                .and_then(|p| p.error_type.clone().or_else(|| p.error.clone()));
+            let message = parsed.as_ref().and_then(|p| p.message.clone());
 
-            return Err(QueryError::Api {
-                status: response.status(),
-                error_type: parsed
-                    .as_ref()
-                    .and_then(|p| p.error_type.clone().or_else(|| p.error.clone())),
-                message: parsed.as_ref().and_then(|p| p.message.clone()),
-                errors: parsed.and_then(|p| p.errors),
-                body,
+            return Err(match status.as_u16() {
+                422 => QueryError::Validation {
+                    error_type,
+                    message,
+                    errors: parsed.and_then(|p| p.errors),
+                    body,
+                },
+                401 | 403 => QueryError::Authentication { message, body },
+                429 => QueryError::RateLimit { message, body },
+                _ => QueryError::Api {
+                    status,
+                    error_type,
+                    message,
+                    body,
+                },
             });
         }
 
@@ -323,7 +358,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn api_error_with_json_body() {
+    async fn validation_error_422() {
         let client = MockClient::error(
             StatusCode::UNPROCESSABLE_ENTITY,
             br#"{"error_type":"DailyLimitExceeded","message":"Limit reached"}"#,
@@ -335,17 +370,55 @@ mod tests {
             .expect_err("should fail");
 
         match err {
-            QueryError::Api {
-                status,
+            QueryError::Validation {
                 error_type,
                 message,
                 ..
             } => {
-                assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
                 assert_eq!(error_type.as_deref(), Some("DailyLimitExceeded"));
                 assert_eq!(message.as_deref(), Some("Limit reached"));
             }
-            _ => panic!("expected Api error, got: {err:?}"),
+            _ => panic!("expected Validation error, got: {err:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn authentication_error_401() {
+        let client = MockClient::error(
+            StatusCode::UNAUTHORIZED,
+            br#"{"message":"Invalid API token"}"#,
+        );
+
+        let err = PostEndpoint::new()
+            .execute(&client)
+            .await
+            .expect_err("should fail");
+
+        match err {
+            QueryError::Authentication { message, .. } => {
+                assert_eq!(message.as_deref(), Some("Invalid API token"));
+            }
+            _ => panic!("expected Authentication error, got: {err:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn rate_limit_error_429() {
+        let client = MockClient::error(
+            StatusCode::TOO_MANY_REQUESTS,
+            br#"{"message":"Rate limit exceeded"}"#,
+        );
+
+        let err = PostEndpoint::new()
+            .execute(&client)
+            .await
+            .expect_err("should fail");
+
+        match err {
+            QueryError::RateLimit { message, .. } => {
+                assert_eq!(message.as_deref(), Some("Rate limit exceeded"));
+            }
+            _ => panic!("expected RateLimit error, got: {err:?}"),
         }
     }
 
@@ -363,13 +436,11 @@ mod tests {
                 status,
                 error_type,
                 message,
-                errors,
                 body,
             } => {
                 assert_eq!(status, StatusCode::BAD_GATEWAY);
                 assert_eq!(error_type, None);
                 assert_eq!(message, None);
-                assert_eq!(errors, None);
                 assert_eq!(body, Bytes::from_static(b"gateway timeout"));
             }
             _ => panic!("expected Api error, got: {err:?}"),
@@ -412,5 +483,17 @@ mod tests {
             }
             _ => panic!("expected Api error, got: {err:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn authentication_error_403() {
+        let client = MockClient::error(StatusCode::FORBIDDEN, br#"{"message":"Access denied"}"#);
+
+        let err = PostEndpoint::new()
+            .execute(&client)
+            .await
+            .expect_err("should fail");
+
+        assert!(matches!(err, QueryError::Authentication { .. }));
     }
 }
