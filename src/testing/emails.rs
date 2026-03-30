@@ -94,9 +94,18 @@ mod tests {
     #[test]
     fn scenario_emails() {
         assert_eq!(Scenario::Ok.email(), "ok@testing.lettermint.co");
-        assert_eq!(Scenario::SoftBounce.email(), "softbounce@testing.lettermint.co");
-        assert_eq!(Scenario::HardBounce.email(), "hardbounce@testing.lettermint.co");
-        assert_eq!(Scenario::SpamComplaint.email(), "spamcomplaint@testing.lettermint.co");
+        assert_eq!(
+            Scenario::SoftBounce.email(),
+            "softbounce@testing.lettermint.co"
+        );
+        assert_eq!(
+            Scenario::HardBounce.email(),
+            "hardbounce@testing.lettermint.co"
+        );
+        assert_eq!(
+            Scenario::SpamComplaint.email(),
+            "spamcomplaint@testing.lettermint.co"
+        );
         assert_eq!(Scenario::Dsn.email(), "dsn@testing.lettermint.co");
     }
 
