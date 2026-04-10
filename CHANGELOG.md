@@ -2,10 +2,15 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-04-10
+
 ### Added
 - `testing::emails` module with `Scenario` enum for CI/testing email addresses
 - `Scenario::email()` for base addresses, `Scenario::random()` for unique addresses
 - `emails::custom()` for arbitrary local parts
+
+### Changed
+- Bumped `hmac` to 0.13, `sha2` to 0.11
 
 ## [0.2.0] - 2026-03-27
 
