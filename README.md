@@ -10,7 +10,7 @@ Rust client library for the [Lettermint](https://lettermint.co) email service. H
 
 ```toml
 [dependencies]
-lettermint = { version = "0.1", features = ["reqwest-rustls"] }
+lettermint = { version = "0.3", features = ["reqwest-rustls"] }
 tokio = { version = "1", features = ["rt", "macros"] }
 ```
 
@@ -123,7 +123,7 @@ use lettermint::Query;
 
 async fn ping(client: &LettermintClient) {
     let resp = PingRequest.execute(client).await.unwrap();
-    println!("API status: {}", resp.status);
+    println!("API says: {}", resp.message);
 }
 ```
 
@@ -262,7 +262,7 @@ Integration tests hit the live Lettermint API using test addresses that don't co
 ```sh
 LETTERMINT_API_TOKEN=your-token \
 LETTERMINT_SENDER=you@yourdomain.com \
-cargo test --test integration --all-features -- --ignored
+cargo test --test e2e --all-features -- --ignored
 ```
 
 ## License

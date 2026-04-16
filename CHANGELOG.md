@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- `tracing` instrumentation — structured spans and events for API requests, HTTP transport, and webhook verification
 - `secrecy` crate integration — `api_token` and webhook `secret` are now `SecretString`
 - Re-exported `secrecy::{ExposeSecret, SecretString}` from crate root
 - `Endpoint::parse_response()` for custom (non-JSON) response parsing
