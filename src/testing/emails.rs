@@ -26,6 +26,7 @@ pub enum Scenario {
 
 impl Scenario {
     /// The local part used in the email address for this scenario.
+    #[must_use]
     pub fn local_part(&self) -> &'static str {
         match self {
             Self::Ok => "ok",
@@ -43,6 +44,7 @@ impl Scenario {
     /// assert_eq!(Scenario::Ok.email(), "ok@testing.lettermint.co");
     /// assert_eq!(Scenario::HardBounce.email(), "hardbounce@testing.lettermint.co");
     /// ```
+    #[must_use]
     pub fn email(&self) -> String {
         custom(self.local_part())
     }
@@ -60,6 +62,7 @@ impl Scenario {
     /// let bounce = Scenario::HardBounce.random();
     /// assert!(bounce.starts_with("hardbounce+"));
     /// ```
+    #[must_use]
     pub fn random(&self) -> String {
         use std::sync::atomic::{AtomicU64, Ordering};
         use std::time::{SystemTime, UNIX_EPOCH};
@@ -83,6 +86,7 @@ impl Scenario {
 /// # use lettermint::testing::emails;
 /// assert_eq!(emails::custom("ok+tag"), "ok+tag@testing.lettermint.co");
 /// ```
+#[must_use]
 pub fn custom(local_part: &str) -> String {
     format!("{local_part}@{DOMAIN}")
 }

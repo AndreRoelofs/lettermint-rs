@@ -101,6 +101,7 @@ pub struct Attachment {
 }
 
 impl Attachment {
+    #[must_use]
     pub fn new(filename: impl Into<String>, content: impl Into<String>) -> Self {
         Self {
             filename: filename.into(),
@@ -110,6 +111,7 @@ impl Attachment {
         }
     }
 
+    #[must_use]
     pub fn inline(
         filename: impl Into<String>,
         content: impl Into<String>,
@@ -124,6 +126,7 @@ impl Attachment {
     }
 
     /// Set the MIME content type (e.g., `application/pdf`, `image/png`).
+    #[must_use]
     pub fn with_content_type(mut self, content_type: impl Into<String>) -> Self {
         self.content_type = Some(content_type.into());
         self

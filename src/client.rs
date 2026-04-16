@@ -106,12 +106,9 @@ where
     async fn execute(self, client: &C) -> Self::Result {
         let method = self.method();
         let endpoint = self.endpoint();
-        // Ensure the path starts with '/' so http::Uri parses it as a valid path.
-        let uri = if endpoint.starts_with('/') {
-            endpoint.into_owned()
-        } else {
-            format!("/{endpoint}")
-        };
+        // Always format as an absolute path so http::Uri parses it correctly.
+        // The Client implementation joins this with its base URL.
+        let uri = format!("/{}", endpoint.trim_start_matches('/'));
         let mut req_builder = http::Request::builder()
             .method(method.clone())
             .uri(uri)
