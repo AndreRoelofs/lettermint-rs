@@ -1,8 +1,8 @@
 # Lettermint
 
-[![ci](https://github.com/franzos/lettermint-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/franzos/lettermint-rs/actions/workflows/ci.yml)
-[![crates.io](https://img.shields.io/crates/v/lettermint.svg)](https://crates.io/crates/lettermint)
-[![Documentation](https://docs.rs/lettermint/badge.svg)](https://docs.rs/lettermint)
+[![ci](https://github.com/AndreRoelofs/lettermint-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/AndreRoelofs/lettermint-rs/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/lettermint-rs.svg)](https://crates.io/crates/lettermint-rs)
+[![Documentation](https://docs.rs/lettermint-rs/badge.svg)](https://docs.rs/lettermint-rs)
 
 Rust client library for the [Lettermint](https://lettermint.co) email service. HTTP client-agnostic — ships with a `reqwest` implementation, or bring your own by implementing the `Client` trait.
 
@@ -10,7 +10,7 @@ Rust client library for the [Lettermint](https://lettermint.co) email service. H
 
 ```toml
 [dependencies]
-lettermint = { version = "0.3", features = ["reqwest-rustls"] }
+lettermint-rs = { version = "0.3", features = ["reqwest-rustls"] }
 tokio = { version = "1", features = ["rt", "macros"] }
 ```
 

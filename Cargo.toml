@@ -1,10 +1,10 @@
 [package]
-name = "lettermint"
+name = "lettermint-rs"
 description = "Lettermint email service client"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/franzos/lettermint-rs"
-homepage = "https://github.com/franzos/lettermint-rs"
-documentation = "https://docs.rs/lettermint"
+repository = "https://github.com/AndreRoelofs/lettermint-rs"
+homepage = "https://github.com/AndreRoelofs/lettermint-rs"
+documentation = "https://docs.rs/lettermint-rs"
 keywords = ["lettermint", "email", "e-mail", "http"]
 categories = ["api-bindings", "email", "web-programming::http-client"]
 version = "0.3.0"
