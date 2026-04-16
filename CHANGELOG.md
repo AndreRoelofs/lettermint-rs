@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+### Added
+- `secrecy` crate integration — `api_token` and webhook `secret` are now `SecretString`
+- Re-exported `secrecy::{ExposeSecret, SecretString}` from crate root
+- `Endpoint::parse_response()` for custom (non-JSON) response parsing
+- `BatchError` enum (`Empty`, `TooLarge`) for batch construction validation
+- `WebhookError::EmptySecret` variant
+- `EmailStatus::Unknown` catch-all variant (`#[serde(other)]`) for forward compatibility
+- `#[non_exhaustive]` on `EmailStatus` and `QueryError`
+- `QueryError::SerializeBody` variant (split from former `Json`)
+- E2E test suite: live API tests (`#[ignore]`) and `wiremock`-based mock tests
+- `wiremock` and `dotenvy` dev-dependencies
+
+### Changed
+- Migrated from `typed-builder` to `bon` for all builder derives
+- `LettermintClient` uses builder pattern (`builder().api_token().build()`)
+- `Webhook` uses builder pattern (`builder().secret().build()`) and returns `Result` instead of panicking
+- `BatchSendRequest::new()` returns `Result<Self, BatchError>` instead of `Option`
+- `Attachment` uses builder pattern
+- `PingResponse` field changed from `status: u16` to `message: String` (plain-text `"pong"`)
+- `QueryError::Json` renamed to `QueryError::DeserializeResponse`
+- Version bumped to 0.3.0
+
+### Removed
+- `typed-builder` dependency
+- `LettermintClient::new()`, `with_base_url()`, `with_reqwest_client()` (use `builder()`)
+- `Webhook::with_tolerance()` (use `builder().tolerance()`)
+- `Attachment::new()`, `Attachment::inline()`, `Attachment::with_content_type()` (use `builder()`)
+- `tests/integration.rs` (replaced by `tests/e2e.rs`)
+
 ## [0.2.2] - 2026-04-10
 
 ### Added
