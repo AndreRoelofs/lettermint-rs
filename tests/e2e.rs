@@ -32,6 +32,7 @@
 
 mod live {
     use std::collections::HashMap;
+    use std::sync::Once;
 
     use lettermint::api::email::*;
     use lettermint::api::ping::PingRequest;
@@ -41,13 +42,24 @@ mod live {
 
     type Result = std::result::Result<(), Box<dyn std::error::Error>>;
 
+    static INIT: Once = Once::new();
+
+    /// Load `.env` (if present) exactly once, then read env vars.
+    fn load_env() {
+        INIT.call_once(|| {
+            dotenvy::dotenv().ok();
+        });
+    }
+
     fn client() -> LettermintClient {
+        load_env();
         let token =
             std::env::var("LETTERMINT_API_TOKEN").expect("LETTERMINT_API_TOKEN must be set");
         LettermintClient::new(token)
     }
 
     fn sender() -> String {
+        load_env();
         std::env::var("LETTERMINT_SENDER").expect("LETTERMINT_SENDER must be set")
     }
 
@@ -98,7 +110,7 @@ mod live {
             .await
             .map_err(|e| format_api_error(&e))?;
 
-        assert_eq!(resp.status, 200);
+        assert_eq!(resp.message, "pong");
         Ok(())
     }
 
@@ -453,7 +465,7 @@ mod mock {
         Mock::given(method("GET"))
             .and(path("/ping"))
             .and(header("accept", "application/json"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!(200)))
+            .respond_with(ResponseTemplate::new(200).set_body_string("pong"))
             .expect(1)
             .mount(&server)
             .await;

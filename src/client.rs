@@ -23,6 +23,17 @@ pub trait Endpoint {
     fn extra_headers(&self) -> Vec<(Cow<'static, str>, Cow<'static, str>)> {
         vec![]
     }
+    /// Parse the raw response body into [`Self::Response`].
+    ///
+    /// The default implementation deserializes JSON. Override this for
+    /// endpoints that return non-JSON responses (e.g. plain text).
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`serde_json::Error`] if the body cannot be parsed.
+    fn parse_response(&self, body: &[u8]) -> Result<Self::Response, serde_json::Error> {
+        serde_json::from_slice(body)
+    }
 }
 
 /// A trait which represents an asynchronous query which may be made to a Lettermint client.
@@ -164,7 +175,7 @@ where
             });
         }
 
-        Ok(serde_json::from_slice(response.body())?)
+        Ok(self.parse_response(response.body())?)
     }
 }
 

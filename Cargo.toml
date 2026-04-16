@@ -31,6 +31,7 @@ reqwest-rustls = ["reqwest", "reqwest/rustls"]
 
 [dev-dependencies]
 base64 = { version = "0.22" }
+dotenvy = { version = "0.15" }
 tokio = { version = "1", default-features = false, features = ["rt", "macros"] }
 wiremock = { version = "0.6" }
 lettermint = { path = ".", features = ["reqwest", "reqwest-rustls"] }
