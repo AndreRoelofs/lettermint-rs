@@ -1,8 +1,8 @@
 use crate::Endpoint;
+use bon::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
-use typed_builder::TypedBuilder;
 
 /// Send a single email via Lettermint.
 ///
@@ -15,73 +15,73 @@ use typed_builder::TypedBuilder;
 ///   .text("Hi there!")
 ///   .build();
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize, TypedBuilder)]
+#[derive(Debug, Clone, PartialEq, Serialize, Builder)]
 pub struct SendEmailRequest {
     /// Sender email address. RFC 5322 format supported: "Name <email>" or "email".
-    #[builder(setter(into))]
+    #[builder(into)]
     pub from: String,
 
     /// One or more recipient email addresses.
-    #[builder(setter(into))]
+    #[builder(into)]
     pub to: Vec<String>,
 
     /// Email subject line.
-    #[builder(setter(into))]
+    #[builder(into)]
     pub subject: String,
 
     /// HTML body content.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub html: Option<String>,
 
     /// Plain text body content.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub text: Option<String>,
 
     /// CC recipients.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub cc: Option<Vec<String>>,
 
     /// BCC recipients.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub bcc: Option<Vec<String>>,
 
     /// Reply-To addresses.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub reply_to: Option<Vec<String>>,
 
     /// Custom email headers.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub headers: Option<HashMap<String, String>>,
 
     /// File attachments.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub attachments: Option<Vec<Attachment>>,
 
     /// Routing key / sending domain.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub route: Option<String>,
 
     /// Custom metadata key-value pairs.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub metadata: Option<HashMap<String, String>>,
 
     /// Categorization tag.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub tag: Option<String>,
 
     /// Idempotency key to prevent duplicate sends. Sent as a header, not in the body.
     #[serde(skip)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub idempotency_key: Option<String>,
 }
 

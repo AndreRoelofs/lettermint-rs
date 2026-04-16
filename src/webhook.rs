@@ -90,6 +90,11 @@ impl Webhook {
     /// Verify a webhook payload using the `X-Lettermint-Signature` header value.
     ///
     /// The signature header format is: `t=<timestamp>,v1=<hex_digest>`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WebhookError`] if the signature is invalid, the timestamp is
+    /// outside the tolerance window, or the payload is not valid JSON.
     pub fn verify(
         &self,
         payload: &str,
@@ -113,6 +118,12 @@ impl Webhook {
     /// - `X-Lettermint-Delivery` (optional) — delivery timestamp, cross-validated against signature
     /// - `X-Lettermint-Event` (optional) — event type (e.g., `message.delivered`)
     /// - `X-Lettermint-Attempt` (optional) — retry attempt number
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WebhookError`] if the signature is invalid, the timestamp is
+    /// outside the tolerance window, headers are inconsistent, or the payload
+    /// is not valid JSON.
     pub fn verify_headers(
         &self,
         signature_header: &str,
@@ -367,10 +378,7 @@ mod tests {
 
     #[test]
     fn empty_secret_returns_error() {
-        assert!(matches!(
-            Webhook::new(""),
-            Err(WebhookError::EmptySecret)
-        ));
+        assert!(matches!(Webhook::new(""), Err(WebhookError::EmptySecret)));
     }
 
     #[test]

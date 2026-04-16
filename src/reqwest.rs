@@ -78,6 +78,12 @@ impl LettermintClient {
         }
     }
 
+    /// Execute an endpoint request and return the deserialized response.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`QueryError`] if the request fails due to network, authentication,
+    /// validation, rate limiting, or other API errors.
     pub async fn execute_endpoint<T>(
         &self,
         request: T,
@@ -94,7 +100,7 @@ impl std::fmt::Debug for LettermintClient {
         f.debug_struct("LettermintClient")
             .field("api_token", &"***")
             .field("base_url", &self.base_url)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -134,8 +140,7 @@ impl Client for LettermintClient {
         let path = req
             .uri()
             .path_and_query()
-            .map(|pq| pq.as_str())
-            .unwrap_or("");
+            .map_or("", http::uri::PathAndQuery::as_str);
         let url = format!(
             "{}/{}",
             self.base_url.trim_end_matches('/'),

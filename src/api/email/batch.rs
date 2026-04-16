@@ -142,7 +142,10 @@ mod tests {
             .collect();
         assert!(matches!(
             BatchSendRequest::new(emails),
-            Err(BatchError::TooLarge { max: 500, actual: 501 })
+            Err(BatchError::TooLarge {
+                max: 500,
+                actual: 501
+            })
         ));
     }
 
