@@ -20,7 +20,7 @@ pub enum BatchError {
 /// Send up to 500 emails in a single batch request.
 ///
 /// ```
-/// # use lettermint::api::email::{SendEmailRequest, BatchSendRequest};
+/// # use lettermint_rs::api::email::{SendEmailRequest, BatchSendRequest};
 /// let emails = vec![
 ///     SendEmailRequest::builder()
 ///         .from("sender@example.com")

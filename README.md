@@ -17,9 +17,9 @@ tokio = { version = "1", features = ["rt", "macros"] }
 ### Send an email
 
 ```rust
-use lettermint::api::email::SendEmailRequest;
-use lettermint::reqwest::LettermintClient;
-use lettermint::Query;
+use lettermint_rs::api::email::SendEmailRequest;
+use lettermint_rs::reqwest::LettermintClient;
+use lettermint_rs::Query;
 
 #[tokio::main]
 async fn main() {
@@ -42,9 +42,9 @@ async fn main() {
 ### HTML + text with all options
 
 ```rust
-use lettermint::api::email::{SendEmailRequest, Attachment};
-use lettermint::reqwest::LettermintClient;
-use lettermint::Query;
+use lettermint_rs::api::email::{SendEmailRequest, Attachment};
+use lettermint_rs::reqwest::LettermintClient;
+use lettermint_rs::Query;
 use std::collections::HashMap;
 
 async fn send_full(client: &LettermintClient) {
@@ -82,9 +82,9 @@ async fn send_full(client: &LettermintClient) {
 Send up to 500 emails in a single request:
 
 ```rust
-use lettermint::api::email::{SendEmailRequest, BatchSendRequest};
-use lettermint::reqwest::LettermintClient;
-use lettermint::Query;
+use lettermint_rs::api::email::{SendEmailRequest, BatchSendRequest};
+use lettermint_rs::reqwest::LettermintClient;
+use lettermint_rs::Query;
 
 async fn send_batch(client: &LettermintClient) {
     let batch = BatchSendRequest::builder()
@@ -117,9 +117,9 @@ async fn send_batch(client: &LettermintClient) {
 Check API connectivity and validate credentials:
 
 ```rust
-use lettermint::api::ping::PingRequest;
-use lettermint::reqwest::LettermintClient;
-use lettermint::Query;
+use lettermint_rs::api::ping::PingRequest;
+use lettermint_rs::reqwest::LettermintClient;
+use lettermint_rs::Query;
 
 async fn ping(client: &LettermintClient) {
     let resp = PingRequest.execute(client).await.unwrap();
@@ -130,7 +130,7 @@ async fn ping(client: &LettermintClient) {
 ### Webhook verification
 
 ```rust
-use lettermint::webhook::Webhook;
+use lettermint_rs::webhook::Webhook;
 
 let wh = Webhook::builder()
     .secret("whsec_your_webhook_secret")
@@ -155,7 +155,7 @@ println!("Event: {:?}, attempt: {:?}", event.event, event.attempt);
 ### Error handling
 
 ```rust
-use lettermint::{Query, QueryError};
+use lettermint_rs::{Query, QueryError};
 
 match req.execute(&client).await {
     Ok(resp) => println!("Sent: {}", resp.message_id),
@@ -187,7 +187,7 @@ To use your own HTTP client, implement the `Client` trait and skip the reqwest f
 ```rust
 use bytes::Bytes;
 use http::{Request, Response};
-use lettermint::Client;
+use lettermint_rs::Client;
 
 struct MyClient {
     api_token: String,
@@ -240,7 +240,7 @@ cargo test --all-features
 The `testing::emails` module provides [Lettermint test addresses](https://lettermint.co/docs/platform/emails/sending-test-emails) that simulate delivery scenarios without affecting quotas or bounce rates:
 
 ```rust
-use lettermint::testing::emails::{self, Scenario};
+use lettermint_rs::testing::emails::{self, Scenario};
 
 // Fixed addresses for each scenario
 let ok = Scenario::Ok.email();            // ok@testing.lettermint.co

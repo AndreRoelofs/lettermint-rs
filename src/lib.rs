@@ -9,8 +9,8 @@
 //!
 //! # Example:
 //! ```
-//! use lettermint::reqwest::LettermintClient;
-//! use lettermint::*;
+//! use lettermint_rs::reqwest::LettermintClient;
+//! use lettermint_rs::*;
 //!
 //! # async fn send_email() {
 //! let client = LettermintClient::builder()

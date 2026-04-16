@@ -13,7 +13,7 @@ const USER_AGENT: &str = concat!("Lettermint/", env!("CARGO_PKG_VERSION"), " (Ru
 /// A reqwest-based Lettermint API client.
 ///
 /// ```
-/// # use lettermint::reqwest::LettermintClient;
+/// # use lettermint_rs::reqwest::LettermintClient;
 /// let client = LettermintClient::builder()
 ///     .api_token("your-api-token")
 ///     .build();
@@ -21,7 +21,7 @@ const USER_AGENT: &str = concat!("Lettermint/", env!("CARGO_PKG_VERSION"), " (Ru
 ///
 /// With a custom base URL:
 /// ```
-/// # use lettermint::reqwest::LettermintClient;
+/// # use lettermint_rs::reqwest::LettermintClient;
 /// let client = LettermintClient::builder()
 ///     .api_token("your-api-token")
 ///     .base_url("https://custom.api/v1/")
@@ -30,7 +30,7 @@ const USER_AGENT: &str = concat!("Lettermint/", env!("CARGO_PKG_VERSION"), " (Ru
 ///
 /// With a pre-configured reqwest client:
 /// ```
-/// # use lettermint::reqwest::LettermintClient;
+/// # use lettermint_rs::reqwest::LettermintClient;
 /// let http_client = reqwest::Client::builder()
 ///     .timeout(std::time::Duration::from_secs(60))
 ///     .build()

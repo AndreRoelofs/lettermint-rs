@@ -7,7 +7,7 @@ use std::borrow::Cow;
 /// The API returns the plain-text body `"pong"` on success.
 ///
 /// ```
-/// # use lettermint::api::ping::PingRequest;
+/// # use lettermint_rs::api::ping::PingRequest;
 /// let req = PingRequest;
 /// // resp will be PingResponse { message: "pong".into() }
 /// ```

@@ -40,7 +40,7 @@ impl Scenario {
     /// The base testing email address for this scenario.
     ///
     /// ```
-    /// # use lettermint::testing::emails::Scenario;
+    /// # use lettermint_rs::testing::emails::Scenario;
     /// assert_eq!(Scenario::Ok.email(), "ok@testing.lettermint.co");
     /// assert_eq!(Scenario::HardBounce.email(), "hardbounce@testing.lettermint.co");
     /// ```
@@ -52,7 +52,7 @@ impl Scenario {
     /// Generate a unique testing email for this scenario.
     ///
     /// ```
-    /// # use lettermint::testing::emails::Scenario;
+    /// # use lettermint_rs::testing::emails::Scenario;
     /// let a = Scenario::Ok.random();
     /// let b = Scenario::Ok.random();
     /// assert_ne!(a, b);
@@ -83,7 +83,7 @@ impl Scenario {
 /// Build a testing email with a custom local part.
 ///
 /// ```
-/// # use lettermint::testing::emails;
+/// # use lettermint_rs::testing::emails;
 /// assert_eq!(emails::custom("ok+tag"), "ok+tag@testing.lettermint.co");
 /// ```
 #[must_use]

@@ -48,7 +48,7 @@ pub struct WebhookEvent {
 /// Webhook verifier for Lettermint webhook payloads.
 ///
 /// ```
-/// # use lettermint::webhook::Webhook;
+/// # use lettermint_rs::webhook::Webhook;
 /// let wh = Webhook::builder()
 ///     .secret("whsec_your_secret")
 ///     .build()

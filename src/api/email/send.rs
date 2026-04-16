@@ -7,7 +7,7 @@ use std::collections::HashMap;
 /// Send a single email via Lettermint.
 ///
 /// ```
-/// # use lettermint::api::email::SendEmailRequest;
+/// # use lettermint_rs::api::email::SendEmailRequest;
 /// let req = SendEmailRequest::builder()
 ///   .from("sender@example.com")
 ///   .to(vec!["recipient@example.com".into()])
