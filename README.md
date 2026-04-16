@@ -23,7 +23,9 @@ use lettermint::Query;
 
 #[tokio::main]
 async fn main() {
-    let client = LettermintClient::new("your-api-token");
+    let client = LettermintClient::builder()
+        .api_token("your-api-token")
+        .build();
 
     let req = SendEmailRequest::builder()
         .from("sender@yourdomain.com")
@@ -59,8 +61,8 @@ async fn send_full(client: &LettermintClient) {
             ("X-Campaign".into(), "monthly-update".into()),
         ]))
         .attachments(vec![
-            Attachment::new("report.pdf", "<base64-encoded-content>"),
-            Attachment::inline("logo.png", "<base64-encoded-logo>", "logo"),
+            Attachment::builder().filename("report.pdf").content("<base64-encoded-content>").build(),
+            Attachment::builder().filename("logo.png").content("<base64-encoded-logo>").content_id("logo").build(),
         ])
         .metadata(HashMap::from([
             ("campaign_id".into(), "2025-03".into()),
@@ -85,21 +87,23 @@ use lettermint::reqwest::LettermintClient;
 use lettermint::Query;
 
 async fn send_batch(client: &LettermintClient) {
-    let batch = BatchSendRequest::new(vec![
-        SendEmailRequest::builder()
-            .from("sender@yourdomain.com")
-            .to(vec!["alice@example.com".into()])
-            .subject("Hello Alice")
-            .text("Hi Alice!")
-            .build(),
-        SendEmailRequest::builder()
-            .from("sender@yourdomain.com")
-            .to(vec!["bob@example.com".into()])
-            .subject("Hello Bob")
-            .text("Hi Bob!")
-            .build(),
-    ])
-    .expect("batch must be 1-500 emails");
+    let batch = BatchSendRequest::builder()
+        .emails(vec![
+            SendEmailRequest::builder()
+                .from("sender@yourdomain.com")
+                .to(vec!["alice@example.com".into()])
+                .subject("Hello Alice")
+                .text("Hi Alice!")
+                .build(),
+            SendEmailRequest::builder()
+                .from("sender@yourdomain.com")
+                .to(vec!["bob@example.com".into()])
+                .subject("Hello Bob")
+                .text("Hi Bob!")
+                .build(),
+        ])
+        .build()
+        .expect("batch must be 1-500 emails");
 
     let responses = batch.execute(client).await.unwrap();
     for resp in responses {
@@ -128,7 +132,10 @@ async fn ping(client: &LettermintClient) {
 ```rust
 use lettermint::webhook::Webhook;
 
-let wh = Webhook::new("whsec_your_webhook_secret");
+let wh = Webhook::builder()
+    .secret("whsec_your_webhook_secret")
+    .build()
+    .unwrap();
 
 // Simple verification — returns parsed JSON payload
 let payload = wh.verify(raw_body, signature_header).unwrap();

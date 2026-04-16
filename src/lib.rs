@@ -13,7 +13,9 @@
 //! use lettermint::*;
 //!
 //! # async fn send_email() {
-//! let client = LettermintClient::new("your-api-token");
+//! let client = LettermintClient::builder()
+//!     .api_token("your-api-token")
+//!     .build();
 //!
 //! let req = api::email::SendEmailRequest::builder()
 //!   .from("sender@example.com")

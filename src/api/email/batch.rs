@@ -1,4 +1,5 @@
 use crate::Endpoint;
+use bon::bon;
 use serde::Serialize;
 use std::borrow::Cow;
 use thiserror::Error;
@@ -35,7 +36,10 @@ pub enum BatchError {
 ///         .build(),
 /// ];
 ///
-/// let batch = BatchSendRequest::new(emails).unwrap();
+/// let batch = BatchSendRequest::builder()
+///     .emails(emails)
+///     .build()
+///     .unwrap();
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(transparent)]
@@ -48,6 +52,7 @@ pub struct BatchSendRequest {
 /// Maximum number of emails per batch request.
 pub const BATCH_MAX_SIZE: usize = 500;
 
+#[bon]
 impl BatchSendRequest {
     /// Create a new batch request.
     ///
@@ -55,8 +60,11 @@ impl BatchSendRequest {
     ///
     /// Returns [`BatchError::Empty`] if `emails` is empty, or
     /// [`BatchError::TooLarge`] if it exceeds [`BATCH_MAX_SIZE`] (500).
-    #[must_use = "this returns the constructed batch; it does not send anything"]
-    pub fn new(emails: Vec<SendEmailRequest>) -> Result<Self, BatchError> {
+    #[builder]
+    pub fn new(
+        emails: Vec<SendEmailRequest>,
+        #[builder(into)] idempotency_key: Option<String>,
+    ) -> Result<Self, BatchError> {
         if emails.is_empty() {
             return Err(BatchError::Empty);
         }
@@ -68,15 +76,8 @@ impl BatchSendRequest {
         }
         Ok(Self {
             emails,
-            idempotency_key: None,
+            idempotency_key,
         })
-    }
-
-    /// Set an idempotency key to prevent duplicate batch sends.
-    #[must_use]
-    pub fn with_idempotency_key(mut self, key: impl Into<String>) -> Self {
-        self.idempotency_key = Some(key.into());
-        self
     }
 
     /// The number of emails in this batch.
@@ -130,7 +131,7 @@ mod tests {
     #[test]
     fn new_rejects_empty() {
         assert!(matches!(
-            BatchSendRequest::new(vec![]),
+            BatchSendRequest::builder().emails(vec![]).build(),
             Err(BatchError::Empty)
         ));
     }
@@ -141,7 +142,7 @@ mod tests {
             .map(|i| minimal_email(&format!("user{i}@example.com")))
             .collect();
         assert!(matches!(
-            BatchSendRequest::new(emails),
+            BatchSendRequest::builder().emails(emails).build(),
             Err(BatchError::TooLarge {
                 max: 500,
                 actual: 501
@@ -151,21 +152,25 @@ mod tests {
 
     #[test]
     fn new_accepts_valid_batch() {
-        let batch = BatchSendRequest::new(vec![
-            minimal_email("a@example.com"),
-            minimal_email("b@example.com"),
-        ]);
+        let batch = BatchSendRequest::builder()
+            .emails(vec![
+                minimal_email("a@example.com"),
+                minimal_email("b@example.com"),
+            ])
+            .build();
         assert!(batch.is_ok());
         assert_eq!(batch.unwrap().len(), 2);
     }
 
     #[test]
     fn serializes_as_array() {
-        let batch = BatchSendRequest::new(vec![
-            minimal_email("a@example.com"),
-            minimal_email("b@example.com"),
-        ])
-        .unwrap();
+        let batch = BatchSendRequest::builder()
+            .emails(vec![
+                minimal_email("a@example.com"),
+                minimal_email("b@example.com"),
+            ])
+            .build()
+            .unwrap();
 
         let val = serde_json::to_value(&batch).unwrap();
         let arr = val.as_array().unwrap();
@@ -176,15 +181,20 @@ mod tests {
 
     #[test]
     fn endpoint_path() {
-        let batch = BatchSendRequest::new(vec![minimal_email("a@example.com")]).unwrap();
+        let batch = BatchSendRequest::builder()
+            .emails(vec![minimal_email("a@example.com")])
+            .build()
+            .unwrap();
         assert_eq!(batch.endpoint(), "send/batch");
     }
 
     #[test]
     fn idempotency_key_header() {
-        let batch = BatchSendRequest::new(vec![minimal_email("a@example.com")])
-            .unwrap()
-            .with_idempotency_key("batch-key-123");
+        let batch = BatchSendRequest::builder()
+            .emails(vec![minimal_email("a@example.com")])
+            .idempotency_key("batch-key-123")
+            .build()
+            .unwrap();
 
         let headers = batch.extra_headers();
         assert_eq!(headers.len(), 1);

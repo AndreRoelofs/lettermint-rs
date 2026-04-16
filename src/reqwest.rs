@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use crate::{Client, Endpoint, LETTERMINT_API_URL, Query, QueryError};
+use bon::Builder;
 use bytes::Bytes;
 use http::{Request, Response};
 use thiserror::Error;
@@ -12,13 +13,18 @@ const USER_AGENT: &str = concat!("Lettermint/", env!("CARGO_PKG_VERSION"), " (Ru
 ///
 /// ```
 /// # use lettermint::reqwest::LettermintClient;
-/// let client = LettermintClient::new("your-api-token");
+/// let client = LettermintClient::builder()
+///     .api_token("your-api-token")
+///     .build();
 /// ```
 ///
 /// With a custom base URL:
 /// ```
 /// # use lettermint::reqwest::LettermintClient;
-/// let client = LettermintClient::with_base_url("your-api-token", "https://custom.api/v1/");
+/// let client = LettermintClient::builder()
+///     .api_token("your-api-token")
+///     .base_url("https://custom.api/v1/")
+///     .build();
 /// ```
 ///
 /// With a pre-configured reqwest client:
@@ -28,12 +34,18 @@ const USER_AGENT: &str = concat!("Lettermint/", env!("CARGO_PKG_VERSION"), " (Ru
 ///     .timeout(std::time::Duration::from_secs(60))
 ///     .build()
 ///     .unwrap();
-/// let client = LettermintClient::with_reqwest_client("your-api-token", http_client);
+/// let client = LettermintClient::builder()
+///     .api_token("your-api-token")
+///     .client(http_client)
+///     .build();
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Builder)]
 pub struct LettermintClient {
+    #[builder(into)]
     api_token: String,
+    #[builder(into, default = String::from(LETTERMINT_API_URL))]
     base_url: String,
+    #[builder(default = default_reqwest_client())]
     client: ::reqwest::Client,
 }
 
@@ -46,37 +58,6 @@ fn default_reqwest_client() -> ::reqwest::Client {
 }
 
 impl LettermintClient {
-    /// Create a new client with the default Lettermint API URL and a 30s timeout.
-    pub fn new(api_token: impl Into<String>) -> Self {
-        Self {
-            api_token: api_token.into(),
-            base_url: LETTERMINT_API_URL.into(),
-            client: default_reqwest_client(),
-        }
-    }
-
-    /// Create a new client with a custom base URL.
-    ///
-    /// The URL should include the API version path (e.g., `https://api.lettermint.co/v1/`).
-    pub fn with_base_url(api_token: impl Into<String>, base_url: impl Into<String>) -> Self {
-        Self {
-            api_token: api_token.into(),
-            base_url: base_url.into(),
-            client: default_reqwest_client(),
-        }
-    }
-
-    /// Create a new client with a pre-configured `reqwest::Client`.
-    ///
-    /// Use this when you need custom timeouts, proxy settings, or TLS configuration.
-    pub fn with_reqwest_client(api_token: impl Into<String>, client: ::reqwest::Client) -> Self {
-        Self {
-            api_token: api_token.into(),
-            base_url: LETTERMINT_API_URL.into(),
-            client,
-        }
-    }
-
     /// Execute an endpoint request and return the deserialized response.
     ///
     /// # Errors

@@ -1,3 +1,4 @@
+use bon::bon;
 use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use thiserror::Error;
@@ -47,7 +48,10 @@ pub struct WebhookEvent {
 ///
 /// ```
 /// # use lettermint::webhook::Webhook;
-/// let wh = Webhook::new("whsec_your_secret").unwrap();
+/// let wh = Webhook::builder()
+///     .secret("whsec_your_secret")
+///     .build()
+///     .unwrap();
 ///
 /// // Verify using raw signature header
 /// // let payload = wh.verify(body, signature_header).unwrap();
@@ -57,30 +61,22 @@ pub struct Webhook {
     tolerance: u64,
 }
 
+#[bon]
 impl Webhook {
-    fn build(secret: String, tolerance: u64) -> Result<Self, WebhookError> {
-        if secret.is_empty() {
-            return Err(WebhookError::EmptySecret);
-        }
-        Ok(Self { secret, tolerance })
-    }
-
     /// Create a new webhook verifier.
     ///
     /// # Errors
     ///
     /// Returns [`WebhookError::EmptySecret`] if `secret` is empty.
-    pub fn new(secret: impl Into<String>) -> Result<Self, WebhookError> {
-        Self::build(secret.into(), DEFAULT_TOLERANCE)
-    }
-
-    /// Create a new webhook verifier with a custom timestamp tolerance in seconds.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`WebhookError::EmptySecret`] if `secret` is empty.
-    pub fn with_tolerance(secret: impl Into<String>, tolerance: u64) -> Result<Self, WebhookError> {
-        Self::build(secret.into(), tolerance)
+    #[builder]
+    pub fn new(
+        #[builder(into)] secret: String,
+        #[builder(default = DEFAULT_TOLERANCE)] tolerance: u64,
+    ) -> Result<Self, WebhookError> {
+        if secret.is_empty() {
+            return Err(WebhookError::EmptySecret);
+        }
+        Ok(Self { secret, tolerance })
     }
 
     /// Verify a webhook payload using the `X-Lettermint-Signature` header value.
@@ -230,7 +226,7 @@ mod tests {
             .as_secs();
 
         let header = make_signature(payload, secret, now);
-        let wh = Webhook::new(secret).unwrap();
+        let wh = Webhook::builder().secret(secret).build().unwrap();
         let result = wh.verify(payload, &header);
         assert!(result.is_ok());
     }
@@ -244,7 +240,7 @@ mod tests {
             .as_secs();
 
         let header = make_signature(payload, "correct-secret", now);
-        let wh = Webhook::new("wrong-secret").unwrap();
+        let wh = Webhook::builder().secret("wrong-secret").build().unwrap();
         let result = wh.verify(payload, &header);
         assert!(matches!(result, Err(WebhookError::InvalidSignature)));
     }
@@ -260,7 +256,7 @@ mod tests {
             - 600; // 10 minutes ago
 
         let header = make_signature(payload, secret, old_ts);
-        let wh = Webhook::new(secret).unwrap();
+        let wh = Webhook::builder().secret(secret).build().unwrap();
         let result = wh.verify(payload, &header);
         assert!(matches!(
             result,
@@ -295,11 +291,15 @@ mod tests {
         let header = make_signature(payload, secret, old_ts);
 
         // Default tolerance (300s) should pass
-        let wh = Webhook::new(secret).unwrap();
+        let wh = Webhook::builder().secret(secret).build().unwrap();
         assert!(wh.verify(payload, &header).is_ok());
 
         // Tight tolerance (10s) should fail
-        let wh_tight = Webhook::with_tolerance(secret, 10).unwrap();
+        let wh_tight = Webhook::builder()
+            .secret(secret)
+            .tolerance(10)
+            .build()
+            .unwrap();
         assert!(matches!(
             wh_tight.verify(payload, &header),
             Err(WebhookError::TimestampTolerance { .. })
@@ -316,7 +316,7 @@ mod tests {
             .as_secs();
 
         let sig_header = make_signature(payload, secret, now);
-        let wh = Webhook::new(secret).unwrap();
+        let wh = Webhook::builder().secret(secret).build().unwrap();
 
         let event = wh
             .verify_headers(
@@ -344,7 +344,7 @@ mod tests {
             .as_secs();
 
         let sig_header = make_signature(payload, secret, now);
-        let wh = Webhook::new(secret).unwrap();
+        let wh = Webhook::builder().secret(secret).build().unwrap();
 
         let event = wh
             .verify_headers(&sig_header, None, None, None, payload)
@@ -357,13 +357,16 @@ mod tests {
 
     #[test]
     fn empty_secret_returns_error() {
-        assert!(matches!(Webhook::new(""), Err(WebhookError::EmptySecret)));
+        assert!(matches!(
+            Webhook::builder().secret("").build(),
+            Err(WebhookError::EmptySecret)
+        ));
     }
 
     #[test]
     fn empty_secret_with_tolerance_returns_error() {
         assert!(matches!(
-            Webhook::with_tolerance("", 300),
+            Webhook::builder().secret("").tolerance(300).build(),
             Err(WebhookError::EmptySecret)
         ));
     }

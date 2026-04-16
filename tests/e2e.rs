@@ -55,7 +55,7 @@ mod live {
         load_env();
         let token =
             std::env::var("LETTERMINT_API_TOKEN").expect("LETTERMINT_API_TOKEN must be set");
-        LettermintClient::new(token)
+        LettermintClient::builder().api_token(token).build()
     }
 
     fn sender() -> String {
@@ -210,7 +210,12 @@ mod live {
             .to(vec![Scenario::Ok.email()])
             .subject("E2E test: attachment")
             .text("See attached file.")
-            .attachments(vec![Attachment::new("test.txt", content)])
+            .attachments(vec![
+                Attachment::builder()
+                    .filename("test.txt")
+                    .content(content)
+                    .build(),
+            ])
             .build()
             .execute(&client())
             .await
@@ -280,21 +285,23 @@ mod live {
     async fn batch_send_ok() -> Result {
         let from = sender();
 
-        let batch = BatchSendRequest::new(vec![
-            SendEmailRequest::builder()
-                .from(from.clone())
-                .to(vec![Scenario::Ok.email()])
-                .subject("E2E test: batch 1/2")
-                .text("First email in batch.")
-                .build(),
-            SendEmailRequest::builder()
-                .from(from)
-                .to(vec![Scenario::Ok.email()])
-                .subject("E2E test: batch 2/2")
-                .text("Second email in batch.")
-                .build(),
-        ])
-        .expect("batch should be valid");
+        let batch = BatchSendRequest::builder()
+            .emails(vec![
+                SendEmailRequest::builder()
+                    .from(from.clone())
+                    .to(vec![Scenario::Ok.email()])
+                    .subject("E2E test: batch 1/2")
+                    .text("First email in batch.")
+                    .build(),
+                SendEmailRequest::builder()
+                    .from(from)
+                    .to(vec![Scenario::Ok.email()])
+                    .subject("E2E test: batch 2/2")
+                    .text("Second email in batch.")
+                    .build(),
+            ])
+            .build()
+            .expect("batch should be valid");
 
         let responses = batch
             .execute(&client())
@@ -320,16 +327,18 @@ mod live {
                 .as_millis()
         );
 
-        let batch = BatchSendRequest::new(vec![
-            SendEmailRequest::builder()
-                .from(from)
-                .to(vec![Scenario::Ok.email()])
-                .subject("E2E test: batch idempotency")
-                .text("Batch with idempotency key.")
-                .build(),
-        ])
-        .expect("batch should be valid")
-        .with_idempotency_key(key);
+        let batch = BatchSendRequest::builder()
+            .emails(vec![
+                SendEmailRequest::builder()
+                    .from(from)
+                    .to(vec![Scenario::Ok.email()])
+                    .subject("E2E test: batch idempotency")
+                    .text("Batch with idempotency key.")
+                    .build(),
+            ])
+            .idempotency_key(key)
+            .build()
+            .expect("batch should be valid");
 
         let responses = batch
             .execute(&client())
@@ -370,7 +379,9 @@ mod live {
     #[tokio::test]
     #[ignore]
     async fn invalid_token_returns_authentication_error() -> Result {
-        let bad_client = LettermintClient::new("this-token-does-not-exist");
+        let bad_client = LettermintClient::builder()
+            .api_token("this-token-does-not-exist")
+            .build();
 
         let err = SendEmailRequest::builder()
             .from("test@example.com")
@@ -406,7 +417,10 @@ mod mock {
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn mock_client(server: &MockServer) -> LettermintClient {
-        LettermintClient::with_base_url("test-token", server.uri())
+        LettermintClient::builder()
+            .api_token("test-token")
+            .base_url(server.uri())
+            .build()
     }
 
     fn ok_send_response() -> serde_json::Value {
@@ -545,9 +559,11 @@ mod mock {
             .mount(&server)
             .await;
 
-        BatchSendRequest::new(vec![minimal_email()])
+        BatchSendRequest::builder()
+            .emails(vec![minimal_email()])
+            .idempotency_key("batch-key-456")
+            .build()
             .unwrap()
-            .with_idempotency_key("batch-key-456")
             .execute(&mock_client(&server))
             .await
             .unwrap();
@@ -616,8 +632,15 @@ mod mock {
             .reply_to(vec!["reply@example.com".into()])
             .headers(HashMap::from([("X-Custom".into(), "value".into())]))
             .attachments(vec![
-                Attachment::new("report.pdf", "base64data"),
-                Attachment::inline("logo.png", "base64logo", "logo"),
+                Attachment::builder()
+                    .filename("report.pdf")
+                    .content("base64data")
+                    .build(),
+                Attachment::builder()
+                    .filename("logo.png")
+                    .content("base64logo")
+                    .content_id("logo")
+                    .build(),
             ])
             .route("my-route")
             .metadata(HashMap::from([("campaign".into(), "spring".into())]))
@@ -685,7 +708,9 @@ mod mock {
             .text("Hi Bob!")
             .build();
 
-        BatchSendRequest::new(vec![email_a, email_b])
+        BatchSendRequest::builder()
+            .emails(vec![email_a, email_b])
+            .build()
             .unwrap()
             .execute(&mock_client(&server))
             .await
@@ -713,7 +738,10 @@ mod mock {
             .await;
 
         // Trailing-slash variant should work too.
-        let client = LettermintClient::with_base_url("test-token", format!("{}/", server.uri()));
+        let client = LettermintClient::builder()
+            .api_token("test-token")
+            .base_url(format!("{}/", server.uri()))
+            .build();
         let resp = minimal_email().execute(&client).await.unwrap();
 
         assert_eq!(resp.message_id, "msg-123");

@@ -86,51 +86,22 @@ pub struct SendEmailRequest {
 }
 
 /// An email attachment.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Builder)]
 pub struct Attachment {
     /// Filename.
+    #[builder(into)]
     pub filename: String,
     /// Base64-encoded content.
+    #[builder(into)]
     pub content: String,
     /// MIME type (e.g., `application/pdf`). Inferred by the server when omitted.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[builder(into)]
     pub content_type: Option<String>,
     /// Content-ID for inline attachments (referenced via `cid:<content_id>` in HTML).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[builder(into)]
     pub content_id: Option<String>,
-}
-
-impl Attachment {
-    #[must_use]
-    pub fn new(filename: impl Into<String>, content: impl Into<String>) -> Self {
-        Self {
-            filename: filename.into(),
-            content: content.into(),
-            content_type: None,
-            content_id: None,
-        }
-    }
-
-    #[must_use]
-    pub fn inline(
-        filename: impl Into<String>,
-        content: impl Into<String>,
-        content_id: impl Into<String>,
-    ) -> Self {
-        Self {
-            filename: filename.into(),
-            content: content.into(),
-            content_type: None,
-            content_id: Some(content_id.into()),
-        }
-    }
-
-    /// Set the MIME content type (e.g., `application/pdf`, `image/png`).
-    #[must_use]
-    pub fn with_content_type(mut self, content_type: impl Into<String>) -> Self {
-        self.content_type = Some(content_type.into());
-        self
-    }
 }
 
 /// Response from sending an email.
@@ -272,8 +243,15 @@ mod tests {
             .subject("With attachment")
             .text("See attached")
             .attachments(vec![
-                Attachment::new("report.pdf", "base64content"),
-                Attachment::inline("logo.png", "base64logo", "logo"),
+                Attachment::builder()
+                    .filename("report.pdf")
+                    .content("base64content")
+                    .build(),
+                Attachment::builder()
+                    .filename("logo.png")
+                    .content("base64logo")
+                    .content_id("logo")
+                    .build(),
             ])
             .build();
 
