@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.3.1]
 
 ### Added
 - `tracing` instrumentation — structured spans and events for API requests, HTTP transport, and webhook verification
