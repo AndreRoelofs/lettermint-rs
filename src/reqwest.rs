@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::time::Duration;
 
 use crate::{Client, Endpoint, LETTERMINT_API_URL, Query, QueryError};

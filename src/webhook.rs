@@ -58,20 +58,20 @@ pub struct Webhook {
 }
 
 impl Webhook {
+    fn build(secret: String, tolerance: u64) -> Result<Self, WebhookError> {
+        if secret.is_empty() {
+            return Err(WebhookError::EmptySecret);
+        }
+        Ok(Self { secret, tolerance })
+    }
+
     /// Create a new webhook verifier.
     ///
     /// # Errors
     ///
     /// Returns [`WebhookError::EmptySecret`] if `secret` is empty.
     pub fn new(secret: impl Into<String>) -> Result<Self, WebhookError> {
-        let secret = secret.into();
-        if secret.is_empty() {
-            return Err(WebhookError::EmptySecret);
-        }
-        Ok(Self {
-            secret,
-            tolerance: DEFAULT_TOLERANCE,
-        })
+        Self::build(secret.into(), DEFAULT_TOLERANCE)
     }
 
     /// Create a new webhook verifier with a custom timestamp tolerance in seconds.
@@ -80,11 +80,7 @@ impl Webhook {
     ///
     /// Returns [`WebhookError::EmptySecret`] if `secret` is empty.
     pub fn with_tolerance(secret: impl Into<String>, tolerance: u64) -> Result<Self, WebhookError> {
-        let secret = secret.into();
-        if secret.is_empty() {
-            return Err(WebhookError::EmptySecret);
-        }
-        Ok(Self { secret, tolerance })
+        Self::build(secret.into(), tolerance)
     }
 
     /// Verify a webhook payload using the `X-Lettermint-Signature` header value.
@@ -101,13 +97,7 @@ impl Webhook {
         signature_header: &str,
     ) -> Result<serde_json::Value, WebhookError> {
         let (timestamp, signature) = parse_signature_header(signature_header)?;
-        verify_signature(
-            payload,
-            &signature,
-            &self.secret,
-            Some(timestamp),
-            self.tolerance,
-        )?;
+        verify_signature(payload, &signature, &self.secret, timestamp, self.tolerance)?;
         Ok(serde_json::from_str(payload)?)
     }
 
@@ -150,13 +140,7 @@ impl Webhook {
 
         let attempt = attempt_header.and_then(|a| a.parse::<u32>().ok());
 
-        verify_signature(
-            payload,
-            &signature,
-            &self.secret,
-            Some(timestamp),
-            self.tolerance,
-        )?;
+        verify_signature(payload, &signature, &self.secret, timestamp, self.tolerance)?;
 
         Ok(WebhookEvent {
             payload: serde_json::from_str(payload)?,
@@ -196,25 +180,20 @@ fn verify_signature(
     payload: &str,
     expected_signature: &str,
     secret: &str,
-    timestamp: Option<u64>,
+    timestamp: u64,
     tolerance: u64,
 ) -> Result<(), WebhookError> {
     // Check timestamp tolerance
-    if let Some(ts) = timestamp {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| WebhookError::SystemClock)?
-            .as_secs();
-        if now.abs_diff(ts) > tolerance {
-            return Err(WebhookError::TimestampTolerance { tolerance });
-        }
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| WebhookError::SystemClock)?
+        .as_secs();
+    if now.abs_diff(timestamp) > tolerance {
+        return Err(WebhookError::TimestampTolerance { tolerance });
     }
 
     // Compute HMAC-SHA256 of "{timestamp}.{payload}"
-    let signed_content = match timestamp {
-        Some(ts) => format!("{ts}.{payload}"),
-        None => payload.to_string(),
-    };
+    let signed_content = format!("{timestamp}.{payload}");
 
     let mut mac =
         HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");

@@ -44,7 +44,11 @@ pub trait Query<C> {
 }
 
 /// An error thrown by the [`Query`] trait.
+///
+/// This enum is `#[non_exhaustive]` — new variants may be added in future
+/// releases without a semver-breaking change.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum QueryError<E>
 where
     E: Error + Send + Sync + 'static,
@@ -52,11 +56,11 @@ where
     #[error("client error: {}", source)]
     Client { source: E },
 
+    #[error("failed to serialize request body: {}", source)]
+    SerializeBody { source: serde_json::Error },
+
     #[error("could not parse JSON response: {}", source)]
-    Json {
-        #[from]
-        source: serde_json::Error,
-    },
+    DeserializeResponse { source: serde_json::Error },
 
     #[error("failed to build request: {}", source)]
     Body {
@@ -133,7 +137,9 @@ where
             http::Method::GET | http::Method::DELETE | http::Method::HEAD => Bytes::new(),
             _ => {
                 req_builder = req_builder.header("Content-Type", "application/json");
-                serde_json::to_vec(self.body())?.into()
+                serde_json::to_vec(self.body())
+                    .map_err(|e| QueryError::SerializeBody { source: e })?
+                    .into()
             }
         };
 
@@ -175,7 +181,8 @@ where
             });
         }
 
-        Ok(self.parse_response(response.body())?)
+        self.parse_response(response.body())
+            .map_err(|e| QueryError::DeserializeResponse { source: e })
     }
 }
 
@@ -455,14 +462,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn success_with_invalid_json_returns_json_error() {
+    async fn success_with_invalid_json_returns_deserialize_error() {
         let client = MockClient::ok(b"not json");
         let err = PostEndpoint::new()
             .execute(&client)
             .await
             .expect_err("should fail");
 
-        assert!(matches!(err, QueryError::Json { .. }));
+        assert!(matches!(err, QueryError::DeserializeResponse { .. }));
     }
 
     #[tokio::test]

@@ -134,14 +134,20 @@ impl Attachment {
 }
 
 /// Response from sending an email.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SendEmailResponse {
     pub message_id: String,
     pub status: EmailStatus,
 }
 
 /// Status of an email.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+///
+/// This enum is `#[non_exhaustive]` — new variants may be added in future
+/// releases without a semver-breaking change. The [`Unknown`](Self::Unknown)
+/// variant captures any status string the server sends that this client
+/// version does not yet recognise.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 #[serde(rename_all = "snake_case")]
 pub enum EmailStatus {
     Pending,
@@ -158,6 +164,9 @@ pub enum EmailStatus {
     Blocked,
     PolicyRejected,
     Unsubscribed,
+    /// A status not yet known to this version of the client.
+    #[serde(other)]
+    Unknown,
 }
 
 impl std::fmt::Display for EmailStatus {
@@ -177,6 +186,7 @@ impl std::fmt::Display for EmailStatus {
             Self::Blocked => write!(f, "blocked"),
             Self::PolicyRejected => write!(f, "policy_rejected"),
             Self::Unsubscribed => write!(f, "unsubscribed"),
+            Self::Unknown => write!(f, "unknown"),
         }
     }
 }
@@ -280,7 +290,15 @@ mod tests {
         let json = r#"{"message_id":"abc-123","status":"queued"}"#;
         let resp: SendEmailResponse = serde_json::from_str(json).unwrap();
         assert_eq!(resp.message_id, "abc-123");
-        assert_eq!(resp.status, EmailStatus::Queued);
+        assert!(matches!(resp.status, EmailStatus::Queued));
+    }
+
+    #[test]
+    fn deserialize_unknown_status() {
+        let json = r#"{"message_id":"abc-123","status":"deferred"}"#;
+        let resp: SendEmailResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.message_id, "abc-123");
+        assert!(matches!(resp.status, EmailStatus::Unknown));
     }
 
     #[test]
