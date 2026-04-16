@@ -5,6 +5,7 @@ use bytes::Bytes;
 use http::{Request, Response, StatusCode};
 use std::error::Error;
 use thiserror::Error;
+use tracing::Instrument;
 
 /// A trait for providing the necessary information for a single REST API endpoint.
 pub trait Endpoint {
@@ -121,68 +122,99 @@ where
     async fn execute(self, client: &C) -> Self::Result {
         let method = self.method();
         let endpoint = self.endpoint();
-        // Always format as an absolute path so http::Uri parses it correctly.
-        // The Client implementation joins this with its base URL.
-        let uri = format!("/{}", endpoint.trim_start_matches('/'));
-        let mut req_builder = http::Request::builder()
-            .method(method.clone())
-            .uri(uri)
-            .header("Accept", "application/json");
 
-        for (name, value) in self.extra_headers() {
-            req_builder = req_builder.header(name.as_ref(), value.as_ref());
-        }
+        let span = tracing::debug_span!(
+            "lettermint.request",
+            method = %method,
+            endpoint = %endpoint,
+            status = tracing::field::Empty,
+        );
 
-        let body = match method {
-            http::Method::GET | http::Method::DELETE | http::Method::HEAD => Bytes::new(),
-            _ => {
-                req_builder = req_builder.header("Content-Type", "application/json");
-                serde_json::to_vec(self.body())
-                    .map_err(|e| QueryError::SerializeBody { source: e })?
-                    .into()
+        async {
+            // Always format as an absolute path so http::Uri parses it correctly.
+            // The Client implementation joins this with its base URL.
+            let uri = format!("/{}", endpoint.trim_start_matches('/'));
+            let mut req_builder = http::Request::builder()
+                .method(method.clone())
+                .uri(uri)
+                .header("Accept", "application/json");
+
+            for (name, value) in self.extra_headers() {
+                req_builder = req_builder.header(name.as_ref(), value.as_ref());
             }
-        };
 
-        let http_req = req_builder.body(body)?;
-        let response = client.execute(http_req).await.map_err(QueryError::client)?;
+            let body = match method {
+                http::Method::GET | http::Method::DELETE | http::Method::HEAD => Bytes::new(),
+                _ => {
+                    req_builder = req_builder.header("Content-Type", "application/json");
+                    serde_json::to_vec(self.body())
+                        .map_err(|e| {
+                            tracing::error!(error = %e, "failed to serialize request body");
+                            QueryError::SerializeBody { source: e }
+                        })?
+                        .into()
+                }
+            };
 
-        if !response.status().is_success() {
-            #[derive(serde::Deserialize)]
-            struct LettermintErrorBody {
-                error_type: Option<String>,
-                error: Option<String>,
-                message: Option<String>,
-                errors: Option<std::collections::HashMap<String, Vec<String>>>,
-            }
+            let http_req = req_builder.body(body)?;
+            let response = client.execute(http_req).await.map_err(|e| {
+                tracing::error!(error = %e, "client transport error");
+                QueryError::client(e)
+            })?;
 
             let status = response.status();
-            let body = response.body().clone();
-            let parsed = serde_json::from_slice::<LettermintErrorBody>(&body).ok();
-            let error_type = parsed
-                .as_ref()
-                .and_then(|p| p.error_type.clone().or_else(|| p.error.clone()));
-            let message = parsed.as_ref().and_then(|p| p.message.clone());
+            tracing::Span::current().record("status", status.as_u16());
 
-            return Err(match status.as_u16() {
-                422 => QueryError::Validation {
-                    error_type,
-                    message,
-                    errors: parsed.and_then(|p| p.errors),
-                    body,
-                },
-                401 | 403 => QueryError::Authentication { message, body },
-                429 => QueryError::RateLimit { message, body },
-                _ => QueryError::Api {
-                    status,
-                    error_type,
-                    message,
-                    body,
-                },
-            });
+            if !status.is_success() {
+                #[derive(serde::Deserialize)]
+                struct LettermintErrorBody {
+                    error_type: Option<String>,
+                    error: Option<String>,
+                    message: Option<String>,
+                    errors: Option<std::collections::HashMap<String, Vec<String>>>,
+                }
+
+                let body = response.body().clone();
+                let parsed = serde_json::from_slice::<LettermintErrorBody>(&body).ok();
+                let error_type = parsed
+                    .as_ref()
+                    .and_then(|p| p.error_type.clone().or_else(|| p.error.clone()));
+                let message = parsed.as_ref().and_then(|p| p.message.clone());
+
+                tracing::warn!(
+                    status = status.as_u16(),
+                    error_type = error_type.as_deref(),
+                    message = message.as_deref(),
+                    "API error response",
+                );
+
+                return Err(match status.as_u16() {
+                    422 => QueryError::Validation {
+                        error_type,
+                        message,
+                        errors: parsed.and_then(|p| p.errors),
+                        body,
+                    },
+                    401 | 403 => QueryError::Authentication { message, body },
+                    429 => QueryError::RateLimit { message, body },
+                    _ => QueryError::Api {
+                        status,
+                        error_type,
+                        message,
+                        body,
+                    },
+                });
+            }
+
+            tracing::debug!(status = status.as_u16(), "request completed");
+
+            self.parse_response(response.body()).map_err(|e| {
+                tracing::error!(error = %e, "failed to deserialize response body");
+                QueryError::DeserializeResponse { source: e }
+            })
         }
-
-        self.parse_response(response.body())
-            .map_err(|e| QueryError::DeserializeResponse { source: e })
+        .instrument(span)
+        .await
     }
 }
 

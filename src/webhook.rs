@@ -89,6 +89,7 @@ impl Webhook {
     ///
     /// Returns [`WebhookError`] if the signature is invalid, the timestamp is
     /// outside the tolerance window, or the payload is not valid JSON.
+    #[tracing::instrument(name = "lettermint.webhook.verify", skip_all)]
     pub fn verify(
         &self,
         payload: &str,
@@ -101,7 +102,9 @@ impl Webhook {
             self.secret.expose_secret(),
             timestamp,
             self.tolerance,
-        )?;
+        )
+        .inspect_err(|e| tracing::warn!(error = %e, "webhook verification failed"))?;
+        tracing::debug!("webhook signature verified");
         Ok(serde_json::from_str(payload)?)
     }
 
@@ -118,6 +121,11 @@ impl Webhook {
     /// Returns [`WebhookError`] if the signature is invalid, the timestamp is
     /// outside the tolerance window, headers are inconsistent, or the payload
     /// is not valid JSON.
+    #[tracing::instrument(
+        name = "lettermint.webhook.verify_headers",
+        skip_all,
+        fields(event = event_header, attempt = attempt_header),
+    )]
     pub fn verify_headers(
         &self,
         signature_header: &str,
@@ -150,7 +158,10 @@ impl Webhook {
             self.secret.expose_secret(),
             timestamp,
             self.tolerance,
-        )?;
+        )
+        .inspect_err(|e| tracing::warn!(error = %e, "webhook verification failed"))?;
+
+        tracing::debug!("webhook signature verified");
 
         Ok(WebhookEvent {
             payload: serde_json::from_str(payload)?,
