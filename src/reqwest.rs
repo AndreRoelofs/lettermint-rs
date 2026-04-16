@@ -4,6 +4,7 @@ use crate::{Client, Endpoint, LETTERMINT_API_URL, Query, QueryError};
 use bon::Builder;
 use bytes::Bytes;
 use http::{Request, Response};
+use secrecy::{ExposeSecret, SecretString};
 use thiserror::Error;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -42,7 +43,7 @@ const USER_AGENT: &str = concat!("Lettermint/", env!("CARGO_PKG_VERSION"), " (Ru
 #[derive(Clone, Builder)]
 pub struct LettermintClient {
     #[builder(into)]
-    api_token: String,
+    api_token: SecretString,
     #[builder(into, default = String::from(LETTERMINT_API_URL))]
     base_url: String,
     #[builder(default = default_reqwest_client())]
@@ -112,8 +113,10 @@ impl Client for LettermintClient {
     type Error = LettermintClientError;
 
     async fn execute(&self, mut req: Request<Bytes>) -> Result<Response<Bytes>, Self::Error> {
-        req.headers_mut()
-            .append("x-lettermint-token", self.api_token.as_str().try_into()?);
+        req.headers_mut().append(
+            "x-lettermint-token",
+            self.api_token.expose_secret().try_into()?,
+        );
 
         // Build URL by joining base_url and the endpoint path, avoiding Url::join
         // pitfalls with leading slashes and missing trailing slashes.

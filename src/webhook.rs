@@ -1,5 +1,6 @@
 use bon::bon;
 use hmac::{Hmac, KeyInit, Mac};
+use secrecy::{ExposeSecret, SecretString};
 use sha2::Sha256;
 use thiserror::Error;
 
@@ -56,8 +57,9 @@ pub struct WebhookEvent {
 /// // Verify using raw signature header
 /// // let payload = wh.verify(body, signature_header).unwrap();
 /// ```
+#[derive(Debug)]
 pub struct Webhook {
-    secret: String,
+    secret: SecretString,
     tolerance: u64,
 }
 
@@ -70,10 +72,10 @@ impl Webhook {
     /// Returns [`WebhookError::EmptySecret`] if `secret` is empty.
     #[builder]
     pub fn new(
-        #[builder(into)] secret: String,
+        #[builder(into)] secret: SecretString,
         #[builder(default = DEFAULT_TOLERANCE)] tolerance: u64,
     ) -> Result<Self, WebhookError> {
-        if secret.is_empty() {
+        if secret.expose_secret().is_empty() {
             return Err(WebhookError::EmptySecret);
         }
         Ok(Self { secret, tolerance })
@@ -93,7 +95,13 @@ impl Webhook {
         signature_header: &str,
     ) -> Result<serde_json::Value, WebhookError> {
         let (timestamp, signature) = parse_signature_header(signature_header)?;
-        verify_signature(payload, &signature, &self.secret, timestamp, self.tolerance)?;
+        verify_signature(
+            payload,
+            &signature,
+            self.secret.expose_secret(),
+            timestamp,
+            self.tolerance,
+        )?;
         Ok(serde_json::from_str(payload)?)
     }
 
@@ -136,7 +144,13 @@ impl Webhook {
 
         let attempt = attempt_header.and_then(|a| a.parse::<u32>().ok());
 
-        verify_signature(payload, &signature, &self.secret, timestamp, self.tolerance)?;
+        verify_signature(
+            payload,
+            &signature,
+            self.secret.expose_secret(),
+            timestamp,
+            self.tolerance,
+        )?;
 
         Ok(WebhookEvent {
             payload: serde_json::from_str(payload)?,

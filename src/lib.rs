@@ -37,6 +37,7 @@ pub mod testing;
 pub mod webhook;
 
 pub use client::*;
+pub use secrecy::{ExposeSecret, SecretString};
 
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
