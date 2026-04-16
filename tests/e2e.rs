@@ -34,11 +34,11 @@ mod live {
     use std::collections::HashMap;
     use std::sync::Once;
 
-    use lettermint::api::email::*;
-    use lettermint::api::ping::PingRequest;
-    use lettermint::reqwest::{LettermintClient, LettermintClientError};
-    use lettermint::testing::emails::{self, Scenario};
-    use lettermint::{Query, QueryError};
+    use lettermint_rs::api::email::*;
+    use lettermint_rs::api::ping::PingRequest;
+    use lettermint_rs::reqwest::{LettermintClient, LettermintClientError};
+    use lettermint_rs::testing::emails::{self, Scenario};
+    use lettermint_rs::{Query, QueryError};
 
     type Result = std::result::Result<(), Box<dyn std::error::Error>>;
 
@@ -408,10 +408,10 @@ mod live {
 mod mock {
     use std::collections::HashMap;
 
-    use lettermint::api::email::*;
-    use lettermint::api::ping::PingRequest;
-    use lettermint::reqwest::LettermintClient;
-    use lettermint::{Query, QueryError};
+    use lettermint_rs::api::email::*;
+    use lettermint_rs::api::ping::PingRequest;
+    use lettermint_rs::reqwest::LettermintClient;
+    use lettermint_rs::{Query, QueryError};
     use serde_json::json;
     use wiremock::matchers::{body_json, header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
